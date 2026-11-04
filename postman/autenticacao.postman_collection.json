@@ -1,0 +1,266 @@
+{
+  "info": {
+    "name": "Testes caixa cinza — Vinicius — RA 250854",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Execute no Postman Desktop. Resultados e evidências devem vir da execução real."
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "for (const key of [\"base_url\", \"api_key\", \"email\", \"password\", \"wrong_password\", \"nonexistent_email\"]) { if (!pm.environment.get(key)) throw new Error(\"Preencha a variável do Environment: \" + key); }",
+          "if (pm.environment.get(\"password\") === pm.environment.get(\"wrong_password\")) throw new Error(\"A senha incorreta deve ser diferente da senha válida\");",
+          "if (pm.environment.get(\"email\") === pm.environment.get(\"nonexistent_email\")) throw new Error(\"Use um e-mail inexistente diferente do usuário válido\");",
+          "const key = pm.environment.get(\"api_key\");",
+          "if (key.startsWith(\"eyJ\")) pm.request.headers.upsert({key:\"Authorization\", value:\"Bearer \" + key}); else pm.request.headers.remove(\"Authorization\");"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "TC01 — Login válido",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "apikey",
+            "value": "{{api_key}}"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{api_key}}",
+            "description": "Enviado apenas com anon JWT legado; removido pelo script para publishable key."
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{base_url}}/auth/v1/token?grant_type=password",
+        "description": "TC01: verifique status, JSON e ausência/presença de token. Use usuário confirmado e sem MFA para o fluxo básico."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "let data = {};",
+              "pm.test(\"Resposta é JSON\", () => { data = pm.response.json(); pm.expect(data).to.be.an(\"object\"); });",
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Token e usuário retornados\", () => { pm.expect(data.access_token).to.be.a(\"string\").and.not.empty; pm.expect(data.token_type).to.equal(\"bearer\"); pm.expect(data.user.email.toLowerCase()).to.equal(pm.environment.get(\"email\").toLowerCase()); });",
+              "// Não salvar tokens, senhas ou respostas completas no console ou no Environment."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "TC02 — Senha incorreta",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "apikey",
+            "value": "{{api_key}}"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{api_key}}",
+            "description": "Enviado apenas com anon JWT legado; removido pelo script para publishable key."
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{wrong_password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{base_url}}/auth/v1/token?grant_type=password",
+        "description": "TC02: verifique status, JSON e ausência/presença de token. Use usuário confirmado e sem MFA para o fluxo básico."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "let data = {};",
+              "pm.test(\"Resposta é JSON\", () => { data = pm.response.json(); pm.expect(data).to.be.an(\"object\"); });",
+              "pm.test(\"Status esperado\", () => pm.expect(pm.response.code).to.be.oneOf([400]));",
+              "pm.test(\"Sem access token\", () => pm.expect(data.access_token).to.be.undefined);",
+              "pm.test(\"Mensagem de erro\", () => pm.expect(data.msg || data.error_description || data.message || data.error).to.be.a(\"string\").and.not.empty);",
+              "pm.test(\"Credenciais rejeitadas\", () => pm.expect(data.error_code || data.code).to.equal(\"invalid_credentials\"));",
+              "// Não salvar tokens, senhas ou respostas completas no console ou no Environment."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "TC03 — Usuário inexistente",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "apikey",
+            "value": "{{api_key}}"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{api_key}}",
+            "description": "Enviado apenas com anon JWT legado; removido pelo script para publishable key."
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{nonexistent_email}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{base_url}}/auth/v1/token?grant_type=password",
+        "description": "TC03: verifique status, JSON e ausência/presença de token. Use usuário confirmado e sem MFA para o fluxo básico."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "let data = {};",
+              "pm.test(\"Resposta é JSON\", () => { data = pm.response.json(); pm.expect(data).to.be.an(\"object\"); });",
+              "pm.test(\"Status esperado\", () => pm.expect(pm.response.code).to.be.oneOf([400]));",
+              "pm.test(\"Sem access token\", () => pm.expect(data.access_token).to.be.undefined);",
+              "pm.test(\"Mensagem de erro\", () => pm.expect(data.msg || data.error_description || data.message || data.error).to.be.a(\"string\").and.not.empty);",
+              "pm.test(\"Credenciais rejeitadas\", () => pm.expect(data.error_code || data.code).to.equal(\"invalid_credentials\"));",
+              "// Não salvar tokens, senhas ou respostas completas no console ou no Environment."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "TC04 — Campos vazios",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "apikey",
+            "value": "{{api_key}}"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{api_key}}",
+            "description": "Enviado apenas com anon JWT legado; removido pelo script para publishable key."
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"\",\n  \"password\": \"\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{base_url}}/auth/v1/token?grant_type=password",
+        "description": "TC04: verifique status, JSON e ausência/presença de token. Use usuário confirmado e sem MFA para o fluxo básico."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "let data = {};",
+              "pm.test(\"Resposta é JSON\", () => { data = pm.response.json(); pm.expect(data).to.be.an(\"object\"); });",
+              "pm.test(\"Status esperado\", () => pm.expect(pm.response.code).to.be.oneOf([400,422]));",
+              "pm.test(\"Sem access token\", () => pm.expect(data.access_token).to.be.undefined);",
+              "pm.test(\"Mensagem de erro\", () => pm.expect(data.msg || data.error_description || data.message || data.error).to.be.a(\"string\").and.not.empty);",
+              "// Não salvar tokens, senhas ou respostas completas no console ou no Environment."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "TC05 — Credenciais inválidas",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "apikey",
+            "value": "{{api_key}}"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{api_key}}",
+            "description": "Enviado apenas com anon JWT legado; removido pelo script para publishable key."
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{nonexistent_email}}\",\n  \"password\": \"{{wrong_password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{base_url}}/auth/v1/token?grant_type=password",
+        "description": "TC05: verifique status, JSON e ausência/presença de token. Use usuário confirmado e sem MFA para o fluxo básico."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "let data = {};",
+              "pm.test(\"Resposta é JSON\", () => { data = pm.response.json(); pm.expect(data).to.be.an(\"object\"); });",
+              "pm.test(\"Status esperado\", () => pm.expect(pm.response.code).to.be.oneOf([400]));",
+              "pm.test(\"Sem access token\", () => pm.expect(data.access_token).to.be.undefined);",
+              "pm.test(\"Mensagem de erro\", () => pm.expect(data.msg || data.error_description || data.message || data.error).to.be.a(\"string\").and.not.empty);",
+              "pm.test(\"Credenciais rejeitadas\", () => pm.expect(data.error_code || data.code).to.equal(\"invalid_credentials\"));",
+              "// Não salvar tokens, senhas ou respostas completas no console ou no Environment."
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
